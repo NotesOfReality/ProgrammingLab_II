@@ -86,7 +86,10 @@ def execute_notebooks():
     only for educational or demonstration purposes without hindering the
     batch processing flow.
     """
-    setup_package('nbconvert','batch execution of jupyter notebooks')
+    if not setup_package('nbconvert','batch execution of jupyter notebooks'):
+        print("""Cannot configure nbconvert.
+            Operation 3 : Aborted.""")
+        return False
 
     for path in Path('.').rglob('*.ipynb'):
         # Skip the excluded directory and the runtime lock files of the notebooks
