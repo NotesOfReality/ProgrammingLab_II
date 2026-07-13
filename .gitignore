@@ -1,0 +1,3 @@
+# python notebooks : work files and directories
+*.ipynb_checkpoint
+*.ipynb.runtlock
