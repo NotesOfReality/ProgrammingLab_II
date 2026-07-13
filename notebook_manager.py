@@ -32,7 +32,6 @@ def setup_package(package_name, feature_description):
 
             print(f"Installing '{package_name}' using {manager}...")
 
-            import subprocess
             try:
                 subprocess.check_call(install_command)
                 print(f"Successfully installed '{package_name}'.\n")
