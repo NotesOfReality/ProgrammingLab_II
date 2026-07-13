@@ -41,6 +41,31 @@ def setup_package(package_name, feature_description):
 
     return True
 
+def setup_git_cleaner():
+    """
+    Installs nbstripout and configures it to clean notebook metadata,
+    specifically targeting the 'runt' field.
+    """
+    if not setup_package("nbstripout", "cleaning Jupyter notebook metadata"):
+        print("""Cannot configure nbstripout.
+            Operation 1 : Aborted.""")
+        return False
+
+    print("Configuring nbstripout...")
+    try:
+        # Install the git filter (adds to .gitattributes)
+        subprocess.run(["nbstripout", "--install"], check=True)
+
+        # Configure local git to strip extra keys
+        # This prevents the 'runt' metadata from causing diffs
+        subprocess.run(["git", "config", "--local", "filter.nbstripout.extrakeys", "metadata.runt"], check=True)
+
+        print("nbstripout configured successfully.")
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to configure nbstripout: {e}")
+        return False
+    return True
+
 def run_operations(operations):
     # operations: list tuples (function_reference, operation_name)
     for func, name in operations:
@@ -123,15 +148,17 @@ if __name__ == "__main__":
     # Request user confirmation before proceeding with the automated tasks
     print("--- Notebook Automation and Git Sync Utility ---")
     print("This script will perform the following actions:")
-    print("1. Mark tracked .ipynb files as 'assume-unchanged' in Git (excluding the 'esercizi' folder).")
-    print("2. Recursively execute all remaining Jupyter notebooks in-place.")
+    print("1. Configure nbstripout to clean notebook metadata (including 'runt').")
+    print("2. Mark tracked .ipynb files as 'assume-unchanged' in Git (excluding the 'esercizi' folder).")
+    print("3. Recursively execute all remaining Jupyter notebooks in-place.")
     print("   Note: Execution is non-blocking; cells within a notebook and subsequent")
     print("   notebooks will continue to run even if runtime errors are encountered.")
 
     # Call list
     tasks = [
-        (setup_git_tracking, "Operation 1"),
-        (execute_notebooks, "Operation 2")
+        (setup_git_cleaner, "Operation 1: Setup nbstripout"),
+        (setup_git_tracking, "Operation 2: Git assume-unchanged"),
+        (execute_notebooks, "Operation 3: Execute notebooks")
     ]
     run_operations(tasks)
 
