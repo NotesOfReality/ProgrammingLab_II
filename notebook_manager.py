@@ -1,7 +1,25 @@
 import os
 import sys
 import subprocess
+import importlib.util
 from pathlib import Path
+from textwrap import dedent
+
+cached_manager = None
+
+def find_package_manager():
+    # Use shutil.which for (platform-agnostic) binary check : it reads the PATH env var
+    global cached_manager
+    if cached_manager is not None:
+        return cached_manager
+
+    from shutil import which
+    for manager in ['uv', 'pip']: # descending order of preference
+        if which(manager):
+            print(f"Found {manager}. Using for packages setup.")
+            cached_manager = manager
+            return cached_manager
+    return None
 
 def setup_package(package_name, feature_description):
     """
@@ -9,35 +27,43 @@ def setup_package(package_name, feature_description):
     offers to install it if missing.
     """
     # Check if the package is available for import
-    import importlib.util
     if importlib.util.find_spec(package_name) is None:
-        print(f"\nThe '{package_name}' package is not installed.")
-        print(f"It is required for: {feature_description}.")
+        print(dedent(f"""
+            The '{package_name}' package is not installed.
+            It is required for: {feature_description}.
+            """))
 
-        user_input = input("Would you like to install it now? [y/n]: ").strip().lower()
+        manager = find_package_manager()
+        if not manager:
+            print(dedent(f"""
+                No package manager found.
+                Package/s installation impossible.
+                Feel free to manually install {package_name}.
+                """))
+            return False
 
-        if user_input == 'y':
-            # Prefer 'uv' if available, otherwise fallback to 'pip'
-            # Check if 'uv' exists in the system PATH
-            # We use shutil.which because 'uv' is a CLI tool, not a Python module
-            # This works on windows only as long as the user already provided an implementation of (GNU) `which`
-            import shutil
-            if shutil.which("uv"):
-                manager = "uv"
-                install_command = ["uv", "pip", "install", package_name, "--system"]
-            else:
-                manager = "pip"
-                # Using sys.executable ensures we target the current Python environment
-                install_command = [sys.executable, "-m", "pip", "install", package_name]
-
-            print(f"Installing '{package_name}' using {manager}...")
-
-            try:
-                subprocess.check_call(install_command)
-                print(f"Successfully installed '{package_name}'.\n")
-            except subprocess.CalledProcessError as e:
-                print(f"Failed to install '{package_name}'. Error: {e}")
+        while True:
+            user_input = input("Would you like to install it now? [y/n]: ").strip().lower()
+            if user_input == 'n':
                 return False
+            if user_input == 'y':
+                break
+            print("Invalid input. Type 'y' or 'n'.")
+
+        install_command = None
+        if manager == "uv":
+            install_command = [manager, "pip", "install", package_name, "--system"]
+        else: # Fallback onto pip
+            # Using sys.executable ensures we target the current Python environment
+            install_command = [sys.executable, "-m", "pip", "install", package_name]
+
+        print(f"Installing '{package_name}' using {manager}...")
+        try:
+            subprocess.check_call(install_command)
+            print(f"Successfully installed '{package_name}'.\n")
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to install '{package_name}'. Error: {e}")
+            return False
 
     return True
 
